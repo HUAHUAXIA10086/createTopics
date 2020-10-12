@@ -1,0 +1,46 @@
+*{
+    margin: 0;
+    padding: 0;
+}
+body{
+    background-color: #f2f6fc;
+}
+.marginAuto{
+    width: 50%;
+    margin: 100px auto -50px;
+}
+@keyframes borderMove {
+    0%{
+    border-top: 5px solid #e74c3c;
+    border-right: 5px solid #e67e22;
+    border-bottom: 10px solid Transparent;
+    border-left: 5px solid Transparent;
+   
+    }
+    25%{
+        border-top:5px solid Transparent;
+        border-right: 5px solid #e67e22;
+        border-bottom:  10px solid #67c23a;
+        border-left: 5px solid Transparent; 
+    }
+    50%{
+        border-top:5px solid Transparent;
+        border-right: 5px solid Transparent;
+        border-bottom:  10px solid #67c23a;
+        border-left: 5px solid #409eff;
+    }
+    100%{
+        border-top: 5px solid #e74c3c;
+        border-right: 5px solid Transparent;
+        border-bottom: 10px solid Transparent;
+        border-left: 5px solid #409eff;
+    }
+}
+.formRules{
+    height: 250px;
+    padding-top: 50px;
+    box-sizing: border-box;
+    position: relative;
+    border-radius: 10px;
+    animation: borderMove 3s linear infinite ;
+}

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <!-- 引入elementUI样式 -->
+  <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+  <link rel="stylesheet" href="./toCreateMath.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自动生成小学四则运算题目</title>
+</head>
+
+<body>
+  <div id="app">
+    <!-- 输入题目数量和数字范围的表单 -->
+    <el-form :model="ruleForm" :rules="formRules" ref="ruleFormRef" label-width="300px" class="formRules marginAuto">
+      <el-form-item label="使用 -r 参数控制题目中数值的范围" prop="numRange">
+        <el-input v-model.Number="ruleForm.numRange"></el-input>
+      </el-form-item>
+      <el-form-item label="使用 -n 参数控制生成题目的个数" prop="numAmount">
+        <el-input v-model.Number="ruleForm.numAmount"></el-input>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" @click="getExam('ruleForm')">生成题目</el-button>
+      </el-form-item>
+    </el-form>
+    <!-- 卡片 -->
+    <el-card class="marginAuto" v-if="questionsData.length>0">
+      <!-- 显示题目的表格 -->
+      <el-table :data="questionsData" stripe>
+        <el-table-column type="index" label="#" width="100">
+        </el-table-column>
+        <el-table-column prop="question" label="题目" width="300">
+        </el-table-column>
+        <el-table-column prop="answers" label="输入答案" width="200">
+          <template v-slot="scope">
+            <el-input placeholder="请输入答案" v-model="scope.row.input" clearabl>
+            </el-input>
+          </template>
+        </el-table-column>
+        <el-table-column label="判断对错">
+          <template v-slot="scope">
+            <el-button type="primary" round size="mini" @click="toCheck(scope.row)">判断对错</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <!-- 分页组件区域 -->
+      <el-pagination @size-change="handleSizeChange" @current-change="handleCurrentChange"
+        :current-page="queryInfo.pagenum" :page-sizes="[10, 20, 50, 100]" :page-size="queryInfo.pagesize"
+        layout="total, sizes, prev, pager, next, jumper" :total="ruleForm.numAmount" background></el-pagination>
+    </el-card>
+    <!-- 保存文件区域 -->
+    <el-row class="marginAuto">
+      <label for="answersBtn">保存答案到执行程序的当前目录下的Answers.txt文件 --></label>
+      <el-button type="primary" id="answersBtn" plain @click="saveAnswers()">Go!</el-button>
+      <br />
+      <br />
+      <label for="gradeBtn">保存成绩到执行程序的当前目录下的Grade.txt文件 --></label>
+      <el-button type="primary" id="gradeBtn" plain @click="saveGradeTxt()">Go!</el-button>
+    </el-row>
+
+  </div>
+</body>
+<!-- 引入vue文件 -->
+<script src="https://unpkg.com/vue/dist/vue.js"></script>
+<!-- 引入elementUI的js文件 -->
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<!-- 引入axios文件 -->
+<script src="https://cdn.staticfile.org/axios/0.18.0/axios.min.js"></script>
+
+<script>
+  new Vue({
+    el: '#app',
+    data() {
+      // 检验数字输入
+      var checkNumRange = (rule, value, callback) => {
+        if (!value) {
+          return callback(new Error('数值范围不能为空'));
+        }
+        setTimeout(() => {
+          if (!Number.isInteger(value)) {
+            callback(new Error('请输入数字值'));
+          } else {
+            if (value < 0) {
+              callback(new Error('请输入正数'));
+            } else {
+              callback();
+            }
+          }
+        }, 1000);
+      };
+      return {
+        ruleForm: {
+          numRange: null,
+          numAmount: null
+        },
+        formRules: {
+          numRange: [{
+            validator: checkNumRange,
+            trigger: 'blur'
+          }],
+          numAmount: [{
+            validator: checkNumRange,
+            trigger: 'blur'
+          }]
+        },
+        questionsData: [],
+        //   分页器数据
+        queryInfo: {
+          //   题目列表分页的当前页码
+          pagenum: 1,
+          // 题目列表分页的页面大小
+          pagesize: 10
+        },
+        // 记录做对了的题目id
+        rightCount: [],
+        rightStr: '',
+        // 记录做错了的题目id
+        errorCount: [],
+        // 全部正确答案
+        answers: [],
+        errorStr: ''
+      }
+    },
+    methods: {
+      // 生成题目
+      getExam(form) {
+        this.$refs.ruleFormRef.validate(async valid => {
+          if (!valid) return null
+          // 发送 POST 请求
+          var data = {
+            topicCount: this.ruleForm.numAmount,
+            numLimit: this.ruleForm.numRange
+          }
+
+          await axios.post("http://localhost:8888/createTopic", data, {
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+
+          ).then(result => {
+            this.getTopics(this.queryInfo.pagenum, this.queryInfo.pagesize)
+          })
+        });
+      },
+      // 根据分页器的参数获取题目
+      async getTopics(count, size) {
+        var that = this
+        var queryData = {
+          pageCount: this.queryInfo.pagenum,
+          pageSize: this.queryInfo.pagesize
+        }
+        await axios.post('http://localhost:8888/getTopic', queryData, {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+          .then(function (response) {
+            response.data.data.forEach(item => {
+              // 添加input属性
+              item.input = null
+            })
+            that.questionsData = response.data.data
+          })
+          .catch(function (error) {
+            console.log(error);
+          });
+      },
+      // 页面大小发生变化时触发的函数
+      handleSizeChange(newSize) {
+        console.log('ok')
+        this.queryInfo.pagesize = newSize
+        this.getTopics()
+      },
+      // 当页码发生改变时触发的函数
+      handleCurrentChange(newPage) {
+        this.queryInfo.pagenum = newPage
+        this.getTopics()
+      },
+      // 保存答案的方法
+      async saveAnswers() {
+        var that = this
+        await axios.post('http://localhost:8888/getTopic', {
+            pageCount: this.queryInfo.pagenum,
+            pageSize: this.ruleForm.numAmount
+          }, {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+          .then(async function (response) {
+            that.answers=[]
+            response.data.data.forEach(item => {
+              eval("ques=" + item.question)
+              that.answers.push({
+                id: item.id,
+                answer: ques
+              })
+            })
+            console.log(that.answers)
+            if (that.answers.length > 0) {
+              await axios.post('http://localhost:8888/createAnswerTxt', that.answers, {
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              }).then(function (response) {
+                console.log(response)
+              }).catch(function (error) {
+                console.log(error)
+              })
+            }
+          })
+          .catch(function (error) {
+            console.log(error);
+          });
+      },
+      // 判断题目对错，并生成结果字符串
+      toCheck(object) {
+        eval("question=" + object.question)
+        eval("input=" + object.input)
+        if (input === question) {
+          // 将做对的题目存进数组
+          if (this.rightCount.indexOf(object.id) === -1) this.rightCount.push(object.id)
+          this.rightStr = 'Correct:' + this.rightCount.length + '(' + this.rightStr.join(',') + ')'
+          return
+        }
+        // 记录做错了的题目
+        if (this.errorCount.indexOf(object.id) === -1) this.errorCount.push(object.id)
+        this.errorStr = 'Wrong:' + this.errorCount.length + '(' + this.errorCount.join(',') + ')'
+      },
+      // 保存成绩的方法
+      saveGradeTxt() {
+        var grade = this.rightStr + '\n' + this.errorStr
+        if (grade) {
+          axios.post('http://localhost:8888/createGradeTxt', grade, {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }).then(function(response){
+            console.log(response)
+          }).catch(function(error){
+            console.log(error)
+          })
+        }
+      }
+    }
+  })
+</script>
+
+</html>
